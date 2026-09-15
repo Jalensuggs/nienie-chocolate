@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+  <meta name="theme-color" content="#f6efe6">
+  <title>捏捏巧克力</title>
+  <link rel="icon" href="assets/cat.webp">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <span class="paw" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><ellipse cx="12" cy="15.5" rx="5" ry="4.2"/><circle cx="5.6" cy="10" r="2.1"/><circle cx="9.6" cy="6.2" r="2.2"/><circle cx="14.4" cy="6.2" r="2.2"/><circle cx="18.4" cy="10" r="2.1"/></svg>
+      </span>
+      <div>
+        <h1 id="title">捏捏巧克力</h1>
+        <p>一只可以随便捏的软乎乎</p>
+      </div>
+    </div>
+    <div class="actions">
+      <button id="sound" class="icon-btn" aria-pressed="true" aria-label="声音">
+        <svg class="on" viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path class="stroke" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg>
+        <svg class="off" viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path class="stroke" d="m16 9.5 5 5m0-5-5 5"/></svg>
+      </button>
+      <button id="card-btn" class="pill-btn">今日卡片</button>
+    </div>
+  </header>
+
+  <main id="stage" class="stage" aria-label="巧克力互动区域：按住捏，拖动拉伸，用力拖可以抱起来，双击有惊喜">
+    <div id="shadow" class="shadow"></div>
+    <canvas id="cat"></canvas>
+    <canvas id="fx"></canvas>
+    <div id="bubble" class="bubble" role="status"></div>
+    <div id="loading" class="loading">巧克力正在伸懒腰…</div>
+  </main>
+
+  <footer class="bottom">
+    <div class="stats"><span id="hint">按住捏一捏 · 用力拖能抱起来扔 · 双击有惊喜</span></div>
+    <nav class="modes" role="group" aria-label="玩法">
+      <button data-mode="squish" class="mode active" aria-pressed="true">
+        <svg viewBox="0 0 24 24"><path class="stroke" d="M12 3.5v8m-3.5-3.5L12 11.5 15.5 8"/><path class="stroke" d="M4.5 19c2-3.2 13-3.2 15 0"/></svg>
+        <span>捏一捏</span>
+      </button>
+      <button data-mode="pet" class="mode" aria-pressed="false">
+        <svg viewBox="0 0 24 24"><path class="stroke" d="M12 20s-7-4.3-7-9.4A3.9 3.9 0 0 1 12 8.4a3.9 3.9 0 0 1 7 2.2C19 15.7 12 20 12 20z"/></svg>
+        <span>摸摸头</span>
+      </button>
+      <button data-mode="tickle" class="mode" aria-pressed="false">
+        <svg viewBox="0 0 24 24"><path class="stroke" d="M6 15c1.5-6 3-6 4.5 0s3 6 4.5 0 3-6 4.5 0M3.5 7.5l2 1.5M19 5.5l1.5-2"/></svg>
+        <span>挠痒痒</span>
+      </button>
+    </nav>
+    <div class="counter"><b id="count">0</b><span>今天捏了</span></div>
+  </footer>
+
+  <dialog id="card-dialog" class="card-dialog">
+    <button id="card-close" class="close" aria-label="关闭">×</button>
+    <img id="card-img" alt="今日摸巧克力卡">
+    <div class="card-actions">
+      <a id="card-save" class="pill-btn primary" download="今日摸巧克力卡.jpg">保存图片</a>
+      <button id="card-share" class="pill-btn">分享</button>
+    </div>
+    <p class="card-tip">手机上也可以长按图片保存</p>
+  </dialog>
+
+  <div id="toast" class="toast" role="status"></div>
+
+  <script src="js/cat-image.js"></script>
+  <script src="js/renderer.js"></script>
+  <script src="js/sound.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
