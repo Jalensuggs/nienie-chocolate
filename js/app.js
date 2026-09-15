@@ -716,7 +716,7 @@
     // 眼睛看向手指
     let lx = 0, ly = 0;
     if (time - lastPointerSeen < 2.5) {
-      const eye = renderer.project(drawState(), 0.48, 0.3335);
+      const eye = renderer.project(drawState(), 0.48, 0.3374);
       const dx = lookTarget.x - eye.x, dy = lookTarget.y - eye.y, len = Math.hypot(dx, dy) || 1;
       const mag = Math.min(1, len / (B * 0.7));
       lx = dx / len * mag; ly = dy / len * mag;
@@ -785,7 +785,7 @@
     requestAnimationFrame(frame);
   }
 
-  renderer.load(window.CAT_IMAGE_SRC).then(() => {
+  renderer.load(window.CAT_IMAGE_SRC, window.CAT_CLOSED_SRC, window.CAT_CLOSED_RECT).then(() => {
     layout();
     $('#loading').classList.add('hide');
     // 出场：从上面掉下来

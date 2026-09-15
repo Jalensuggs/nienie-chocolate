@@ -6,9 +6,9 @@
   // 素材上的关键位置（UV，0~1，以 assets/cat.png 为准）
   const RIG = {
     feetV: 0.965,                       // 脚底，缩放/站立的锚点
-    eyeL: [0.3461, 0.3335],
-    eyeR: [0.6136, 0.3335],
-    eyeR_: 0.062,                       // 眼睛半径
+    eyeL: [0.3413, 0.3374],             // 眼眶中心（和 tools/make_closed_eyes.py 保持一致）
+    eyeR: [0.6187, 0.3374],
+    eyeRad: [0.0605, 0.057],            // 眼眶横向、纵向半径
     earL: { base: [0.30, 0.19], tip: [0.20, 0.05] },
     earR: { base: [0.67, 0.18], tip: [0.77, 0.05] },
     tail: { base: [0.872, 0.61], tip: [0.915, 0.475] },
@@ -23,53 +23,53 @@
     precision highp float;
     varying vec2 vUv;
     uniform sampler2D uTex;
+    uniform sampler2D uClosed;  // 眼睛被毛盖住的那一块贴图
+    uniform vec4 uClosedRect;   // 它在整张图里的位置：x, y, w, h
     uniform vec2 uLook;       // 眼睛看向，-1~1
     uniform float uBlink;     // 0 睁眼 1 闭眼
-    uniform float uHappy;     // 闭眼时眼线的弯曲方向：0 为 ︶ 睡眼，1 为 ^ 笑眼
+    uniform float uHappy;     // 闭眼时眼线的弯曲方向：0 为 ︶ 睡眼，1 为 ∩ 笑眼
     uniform vec2 uPress; uniform float uPressAmt;
     uniform vec2 uLight; uniform float uGloss;
     uniform float uPx;        // 一个屏幕像素对应的 UV 长度，用来抗锯齿
     const vec2 EYE_L=vec2(${RIG.eyeL[0]},${RIG.eyeL[1]});
     const vec2 EYE_R=vec2(${RIG.eyeR[0]},${RIG.eyeR[1]});
-    const float ER=${RIG.eyeR_};
-    const vec3 LASH=vec3(.30,.24,.23);
-
-    vec4 eyeShade(vec2 uv, vec2 c, vec4 base){
-      vec2 d=uv-c; float dist=length(d);
-      if(dist>ER*1.36) return base;
-      // 1) 眼珠跟随：只挪眼眶内部，边缘保持不动
-      float inner=1.-smoothstep(ER*.5,ER*.93,dist);
-      vec2 s=uv-uLook*ER*.2*inner;
-      vec4 eye=texture2D(uTex,s);
-      if(uBlink<.002) return eye;
-      // 2) 眨眼：上下眼皮合拢，把眼睛压成一条缝
-      float open=1.-uBlink;
-      float nx=clamp(d.x/ER,-1.,1.);
-      float halfH=sqrt(max(0.,1.-nx*nx))*ER;
-      float curve=ER*.28*(1.-nx*nx)*uBlink*(1.-2.*uHappy);   // 闭眼时的弧度
-      float mid=curve*(1.-open);
-      float band=halfH*open;
-      float dy=d.y-mid;
-      vec4 squashed=texture2D(uTex,vec2(s.x,c.y+dy/max(open,.04)));
-      float soft=uPx*1.5;
-      float inside=1.-smoothstep(band-soft,band+soft,abs(dy));
-      float lidMask=1.-smoothstep(ER*1.0,ER*1.34,dist);       // 眼皮盖住的范围
-      // 眼皮的毛：从眼眶正上方借一段真实毛发纹理，越靠眼睛中间借得越远
-      float R2=ER*1.3;
-      float qx=clamp(d.x,-R2*.97,R2*.97);
-      vec2 q=vec2(c.x+qx, c.y-sqrt(max(0.,R2*R2-qx*qx))-(halfH-abs(d.y))*.45);
-      vec3 fur=texture2D(uTex,q).rgb*(1.-.05*smoothstep(ER*.2,-ER*.6,d.y));
-      vec3 col=mix(fur,squashed.rgb,inside);
-      float lash=(1.-smoothstep(uPx*1.2,uPx*2.8+ER*.05*uBlink,abs(abs(dy)-band)))*step(abs(nx),.98)*smoothstep(.15,.6,uBlink);
-      col=mix(col,LASH,lash*.85*(1.-smoothstep(.85,1.,abs(nx))));
-      return vec4(mix(eye.rgb,col,lidMask),eye.a);
-    }
+    const vec2 ERAD=vec2(${RIG.eyeRad[0]},${RIG.eyeRad[1]});
+    const vec3 LASH=vec3(.29,.22,.21);
 
     void main(){
       vec2 uv=vUv;
-      vec4 col=texture2D(uTex,uv);
-      if(col.a<.003) discard;
-      col=eyeShade(uv, uv.x<.48?EYE_L:EYE_R, col);
+      vec4 base=texture2D(uTex,uv);
+      if(base.a<.003) discard;
+      // 注意：所有贴图采样都放在分支外面。分支里做 mipmap 采样会让 GPU 算错层级，边界上出现一圈亮点
+      vec2 c=uv.x<.48?EYE_L:EYE_R;
+      vec2 d=uv-c;
+      vec2 n=d/ERAD;            // 眼眶边缘处 length(n)=1
+      float dist=length(n);
+      // 1) 眼珠跟随：只挪眼眶内部，边缘保持不动
+      float inner=1.-smoothstep(.5,.93,dist);
+      vec2 s=uv-uLook*ERAD*.2*inner;
+      vec4 eye=texture2D(uTex,s);
+      // 2) 眨眼：上下眼皮合拢，露出的那条缝里是被压扁的眼睛，其余是"闭眼贴图"里的毛
+      float open=1.-uBlink;
+      float nx=clamp(n.x,-1.,1.);
+      float halfH=sqrt(max(0.,1.-nx*nx));
+      float mid=.28*(1.-nx*nx)*uBlink*uBlink*(1.-2.*uHappy);   // 闭眼时眼线的弧度
+      float band=halfH*open;
+      float dy=n.y-mid;
+      vec4 squashed=texture2D(uTex,vec2(s.x,c.y+dy*ERAD.y/max(open,.04)));
+      vec3 fur=texture2D(uClosed,clamp((uv-uClosedRect.xy)/uClosedRect.zw,0.,1.)).rgb;
+      float px=uPx/ERAD.y;
+      float inside=1.-smoothstep(band-px*1.5,band+px*1.5,abs(dy));
+      vec3 lid=mix(fur,squashed.rgb,inside);
+      // 眼线：中间粗、两头收尖，下眼线淡一些
+      float taper=1.-smoothstep(.45,1.,abs(nx));
+      float w=(px*1.1+.055*uBlink)*taper;
+      float lash=(1.-smoothstep(w,w+px*1.4,abs(abs(dy)-band)))*step(abs(n.x),1.)*smoothstep(.12,.55,uBlink);
+      lash*=dy<0.?1.:.45+.55*uBlink;
+      lid=mix(lid,LASH,lash*.9);
+      // 闭眼贴图外圈本来就和原图一样，再柔和过渡一下，避免压缩误差露出边
+      float cover=(1.-smoothstep(1.2,1.42,dist))*step(.002,uBlink);
+      vec4 col=vec4(mix(eye.rgb,lid,cover),base.a);
       // 按压处的凹陷阴影
       vec2 pd=uv-uPress;
       col.rgb*=1.-uPressAmt*.16*exp(-dot(pd,pd)*55.);
@@ -124,7 +124,7 @@
         gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 16, off);
       });
       this.u = {};
-      ['uRes', 'uTex', 'uLook', 'uBlink', 'uHappy', 'uPress', 'uPressAmt', 'uLight', 'uGloss', 'uPx']
+      ['uRes', 'uTex', 'uClosed', 'uClosedRect', 'uLook', 'uBlink', 'uHappy', 'uPress', 'uPressAmt', 'uLight', 'uGloss', 'uPx']
         .forEach((k) => (this.u[k] = gl.getUniformLocation(prog, k)));
       gl.enable(gl.BLEND);
       gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
@@ -132,22 +132,26 @@
       this.ready = false;
     }
 
-    async load(src) {
-      const img = new Image();
-      img.src = src;
-      await img.decode();
+    async load(src, closedSrc, closedRect) {
+      const decode = async (url) => { const im = new Image(); im.src = url; await im.decode(); return im; };
+      const [img, closed] = await Promise.all([decode(src), decode(closedSrc)]);
       this.image = img;
       const gl = this.gl;
-      const tex = gl.createTexture();
-      gl.bindTexture(gl.TEXTURE_2D, tex);
       gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
-      gl.generateMipmap(gl.TEXTURE_2D);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      [img, closed].forEach((im, unit) => {
+        const tex = gl.createTexture();
+        gl.activeTexture(gl.TEXTURE0 + unit);
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, im);
+        gl.generateMipmap(gl.TEXTURE_2D);   // 两张图都是 2 的幂尺寸
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      });
       gl.uniform1i(this.u.uTex, 0);
+      gl.uniform1i(this.u.uClosed, 1);
+      gl.uniform4f(this.u.uClosedRect, ...closedRect);
 
       // 低分辨率 alpha 蒙版，用来判断手指有没有点在猫身上
       const m = 128, c = document.createElement('canvas');
